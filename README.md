@@ -15,8 +15,9 @@ If you want to change the behavior of this module, please feel free to make chan
 
 
 
-- PlugnPaySS2.php is for the Smart Screens v2 payment method (alpha)
-- PlugnPayAPI.php is for the API payment method (under development)
+- PlugnPaySS1.php is for the [legacy] Smart Screens v1 payment method (alpha) 
+- PlugnPaySS2.php is for the [current] Smart Screens v2 payment method (alpha)
+- PlugnPayAPI.php is for the API payment method (unfinished - DO NOT USE)
 
 Installation:
 
@@ -41,8 +42,19 @@ Please do your own debugging before contacting anyone for assistance.
 
 Updates:
 
-11/27/2020
+11/30/2020
+- [alpha] payment module released for Smart Screens v1 (PlugnPaySS2.php)
+- module was designed/tested with BoxBilling v4.21
+- single payment checkout works, with response data collection working.
+- recurrent payment checkout is unavailble, but hope to offer it in a future update.
+- the code is not production ready, but is far enough long for testing & feedback purposes.
+- code still needs refinement, such as better validation & updating the invoice status as to paid
+- [alpha] payment module for Smart Screens v2 was updated
+- corrected the response data collection matter
+- cleaned up some of the code's logic & removed some commented data
+- code still needs refinement, such as better validation & updating the invoice status as to paid
 
+11/27/2020
 - [alpha] payment module released for Smart Screens v2 (PlugnPaySS2.php)
 - module was designed/tested with BoxBilling v4.21
 - single payment checkout works, but response data collection needs tweaking.

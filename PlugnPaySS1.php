@@ -1,6 +1,6 @@
 <?php
 /**
- * BoxBilling - PlugnPay SSv2
+ * BoxBilling - PlugnPay SSv1
  *
  * @copyright BoxBilling, Inc (http://www.boxbilling.com)
  * @license   Apache-2.0
@@ -10,17 +10,18 @@
  * with this source code in the file LICENSE
  */
 
-class Payment_Adapter_PlugnPaySS2 extends Payment_AdapterAbstract {
+class Payment_Adapter_PlugnPaySS1 extends Payment_AdapterAbstract {
   public function init() {
+
     if (!extension_loaded('curl')) {
       throw new Payment_Exception('cURL extension is not enabled');
     }
 
-    if (!$this->getParam('pt_gateway_account')) {
-      throw new Payment_Exception('Payment gateway "PlugnPay" is not configured properly. Please update configuration parameter "Gateway Account" at "Configuration -> Payments".');
+    if (!$this->getParam('publisher_name')) {
+      throw new Payment_Exception('Payment gateway "PlugnPay" is not configured properly. Please update configuration parameter "Publisher Name" at "Configuration -> Payments".');
     }
 
-    if (!$this->getParam('pb_cards_allowed')) {
+    if (!$this->getParam('cards_allowed')) {
       throw new Payment_Exception('Payment gateway "PlugnPay" is not configured properly. Please update configuration parameter "Cards Allowed" at "Configuration -> Payments".');
     }
   }
@@ -32,20 +33,20 @@ class Payment_Adapter_PlugnPaySS2 extends Payment_AdapterAbstract {
       'description'                =>  'To setup PlugnPay merchant account in BoxBilling you need to go to <i>Account &gt; Settings </i> and enter your account values. ' .
                                        'To receive instant payment notifications, copy "IPN callback URL" to PlugnPay "Account &gt; Silent Post URL"',
       'form'  => array(
-        'pt_gateway_account' => array('text', array(
+        'publisher_name' => array('text', array(
             'label'       => 'Gateway Account',
             'description' => 'Username issued by us to you at time of sign up.',
           ),
         ),
-        'pb_cards_allowed' => array('text', array(
+        'cards_allowed' => array('text', array(
             'label'       => 'Cards Allowed',
             'description' => 'Credit card types presented to the customer as payment options. Comma separate the values, when specifying multiple card types.',
           ),
         ),
-        'pb_tds' => array('select', array(
+        'tdsflag' => array('select', array(
             'multiOptions' => array(
-              'yes' => 'Yes',
-              'no' => 'No'
+              '1' => 'Yes',
+              '0' => 'No'
             ),
             'label' => 'Use 3D Secure',
             'description' => 'If set to "Yes", will implement 3D secure checkout functionality. Merchant must subscribe to the 3D secure program. Additional fees apply, so please contact either your sales agent or technical support.',
@@ -60,7 +61,7 @@ class Payment_Adapter_PlugnPaySS2 extends Payment_AdapterAbstract {
    * @return string
    */
   public function getType() {
-      return Payment_AdapterAbstract::TYPE_FORM;
+    return Payment_AdapterAbstract::TYPE_FORM;
   }
 
   public function getServiceUrl() {
@@ -68,45 +69,46 @@ class Payment_Adapter_PlugnPaySS2 extends Payment_AdapterAbstract {
       return 'https://cartdev.urlhitch.com/inputtest.cgi';
     }
 
-    return 'https://pay1.plugnpay.com/pay/';
+    return 'https://pay1.plugnpay.com/payment/pay.cgi';
   }
 
   /**
    * Get invoice id from IPN
-   * pt_order_classifier is custom param in SSv2 request
+   * pt_order_classifier is custom param in SSv1 request
    *
    * @param array $data
    * @return int
    */
   public function getInvoiceId($data) {
     $ipn = $data['post'];
-    return isset($ipn['pt_account_code_1']) ? (int)$ipn['pt_account_code_1'] : NULL;
+    return isset($ipn['acct_code']) ? (int)$ipn['acct_code'] : NULL;
   }
 
   /**
-   * PlugnPay SSv2 integration.
-   * Requires to setup ONLY "Silent Post URL" at mechants account
+   * PlugnPay SSv1 integration.
+   * Requires to setup ONLY "Silent Post URL" at merchants account
    *
    * @param Payment_Invoice $invoice
    * @return array
    */
 
+
   public function singlePayment(Payment_Invoice $invoice) {
     $b = $invoice->getBuyer();
 
     $params = array(
-      'pt_client_identifier'     => 'BillBox_SSv2',
-      'pt_gateway_account'       => $this->getParam('pt_gateway_account'),
-      'pt_transaction_amount'    => $invoice->getTotalWithTax(),
-      'pt_currency'              => $invoice->getCurrency(),
-      'pt_account_code_1'        => $invoice->getId(),
-      'pt_order_classifier'      => $invoice->getNumber(),
-      'pb_cards_allowed'         => $this->getParam('pb_cards_allowed'),
-      'pb_tds'                   => $this->getParam('pb_tds'),
+      'client'     => 'BillBox_SSv1',
+      'publisher-name'   => $this->getParam('publisher_name'),
+      'card-amount'      => $invoice->getTotalWithTax(),
+      'currency'         => $invoice->getCurrency(),
+      'acct_code'        => $invoice->getId(),
+      'order-id'         => $invoice->getNumber(),
+      'cards-allowed'    => $this->getParam('cards-allowed'),
+      'tdsflag'          => $this->getParam('tdsflag'),
 
        // do not use this, use silent IPN instead
-      'pb_transition_type'       => 'get',
-      'pb_success_url'           =>  $this->getParam('return_url'),
+      'transitiontype'   => 'get',
+      'success-link'     =>  $this->getParam('return_url'),
     );
     return $params;
   }
@@ -119,13 +121,12 @@ class Payment_Adapter_PlugnPaySS2 extends Payment_AdapterAbstract {
     $ipn = array_merge($data['get'], $data['post']);
 
     $tx = new Payment_Transaction();
-    $tx->setId($ipn['pt_account_code_1']);
+    $tx->setId($ipn['acct_code']);
     $tx->setType(Payment_Transaction::TXTYPE_PAYMENT);
-    $tx->setAmount($ipn['pt_transaction_amount']);
+    $tx->setAmount($ipn['card-amount']);
     $tx->setCurrency($invoice->getCurrency());
 
-
-    if ($ipn['pi_response_status'] == 'success') {
+    if ($ipn['FinalStatus'] == 'success') {
       $tx->setStatus(Payment_Transaction::STATUS_COMPLETE);
     }
     else {
@@ -141,7 +142,7 @@ class Payment_Adapter_PlugnPaySS2 extends Payment_AdapterAbstract {
 
     $ipn = array_merge($data['get'], $data['post']);
 
-    if (($ipn['pi_response_status']) && isset($ipn['pt_order_id'])) {
+    if ($this->testMode || $ipn['FinalStatus'] == 'success') {
       return true;
     }
 
